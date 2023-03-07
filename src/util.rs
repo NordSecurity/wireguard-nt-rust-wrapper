@@ -147,6 +147,7 @@ impl StructReader {
     }
 
     /// Returns true if this reader's capacity is full, false otherwise
+    #[allow(dead_code)]
     pub fn is_full(&self) -> bool {
         self.layout.size() == self.offset
     }

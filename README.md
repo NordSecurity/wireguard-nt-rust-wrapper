@@ -11,7 +11,7 @@ Add a dependency on this library to your `Cargo.toml`
 
 ```toml
 [dependencies]
-wireguard-nt = "0.2"
+wireguard-nt = "1.0"
 ```
 
 Inside your code load the wireguard.dll signed driver file, downloaded from <https://git.zx2c4.com/wireguard-nt/about>

@@ -1,3 +1,4 @@
+#[warn(missing_docs)]
 use crate::log::AdapterLoggingLevel;
 use crate::util;
 /// Representation of a wireGuard adapter with safe idiomatic bindings to the functionality provided by
@@ -11,7 +12,7 @@ use crate::WireGuardError;
 use std::mem::{align_of, size_of};
 use std::time::{Duration, Instant, SystemTime};
 
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::ptr;
 use std::sync::Arc;
 
@@ -22,12 +23,13 @@ use rand::Rng;
 use widestring::U16CString;
 use winapi::shared::winerror::ERROR_MORE_DATA;
 use winapi::um::errhandlingapi::GetLastError;
+use wireguard_uapi::{get, xplatform::set};
 
-/// Wrapper around a `WIREGUARD_ADAPTER_HANDLE`
-///
-/// Related functions from WireGuardXXX are functions with an adapter self parameter
+/// `Adapter` holds the `WIREGUARD_ADAPTER_HANDLE` and it's related functionality via `wireguard` wrapper
 pub struct Adapter {
+    /// WIREGUARD_ADAPTER_HANDLE
     adapter: UnsafeHandle<wireguard_nt_raw::WIREGUARD_ADAPTER_HANDLE>,
+    /// Wireguard-NT wrapper
     wireguard: Arc<wireguard_nt_raw::wireguard>,
 }
 
@@ -72,6 +74,7 @@ pub struct SetInterface {
     pub peers: Vec<SetPeer>,
 }
 
+/// Convert a `str into `utf16` and bind it with `wireguard` wrapper into a tuple
 fn encode_name(
     name: &str,
     wireguard: Arc<wireguard_nt_raw::wireguard>,
@@ -111,13 +114,35 @@ pub struct EnumeratedAdapter {
     pub name: String,
 }
 
+/// Get error message from error code
 fn win_error(context: &str, error_code: u32) -> Result<(), Box<dyn std::error::Error>> {
     let e = std::io::Error::from_raw_os_error(error_code as i32);
     Err(format!("{} - {}", context, e).into())
 }
 
-const WIREGUARD_STATE_DOWN: i32 = 0;
-const WIREGUARD_STATE_UP: i32 = 1;
+pub const WIREGUARD_STATE_DOWN: i32 = 0;
+pub const WIREGUARD_STATE_UP: i32 = 1;
+
+bitflags::bitflags! {
+    struct InterfaceFlags: i32 {
+        const HAS_PUBLIC_KEY =  1 << 0;
+        const HAS_PRIVATE_KEY = 1 << 1;
+        const HAS_LISTEN_PORT = 1 << 2;
+        const REPLACE_PEERS =  1 << 3;
+    }
+}
+
+bitflags::bitflags! {
+    struct PeerFlags: i32 {
+        const HAS_PUBLIC_KEY =  1 << 0;
+        const HAS_PRESHARED_KEY = 1 << 1;
+        const HAS_PERSISTENT_KEEPALIVE = 1 << 2;
+        const HAS_ENDPOINT = 1 << 3;
+        const REPLACE_ALLOWED_IPS = 1 << 5;
+        const REMOVE = 1 << 6;
+        const UPDATE = 1 << 7;
+    }
+}
 
 impl Adapter {
     //TODO: Call get last error for error information on failure and improve error types
@@ -163,7 +188,7 @@ impl Adapter {
         };
 
         if result.is_null() {
-            Err(("Failed to crate adapter".into(), wireguard))
+            Err(("Failed to create adapter".into(), wireguard))
         } else {
             Ok(Self {
                 adapter: UnsafeHandle(result),
@@ -193,30 +218,179 @@ impl Adapter {
         }
     }
 
+    /// Sets the wireguard configuration of this adapter using xplatform structures
+    /// 
+    /// 
+    /// This is reimplementation of wg-nt-wrapper set_config() function with
+    /// return type that is compatible with telio::Adapter type.
+    /// 
+    /// # Panics
+    /// 1. If writing to WIREGUARD_INTERFACE allocation would overflow the buffer.
+    /// 2. If the writer's internal pointer does not meet the alignment requirements of WIREGUARD_INTERFACE.
+    pub fn set_config_uapi(&self, config: &set::Device) -> Result<(), WireGuardError> {
+        use wireguard_nt_raw::*;
+
+        let peer_size: usize = config
+            .peers
+            .iter()
+            .map(|p| {
+                size_of::<WIREGUARD_PEER>()
+                    + p.allowed_ips.len() * size_of::<WIREGUARD_ALLOWED_IP>()
+            })
+            .sum();
+
+        let size: usize = size_of::<WIREGUARD_INTERFACE>() + peer_size;
+        let align = align_of::<WIREGUARD_INTERFACE>();
+
+        let mut writer = util::StructWriter::new(size, align);
+        //Most of this function is writing data into `writer`, in a format that wireguard expects
+        //so that it can decode the data when we call WireGuardSetConfiguration
+
+        // Safety:
+        // 1. `writer` has the correct alignment for a `WIREGUARD_INTERFACE`
+        // 2. Nothing has been written to writer so the internal pointer must be aligned
+        let interface: &mut WIREGUARD_INTERFACE = unsafe { writer.write() };
+        interface.Flags = {
+            let mut flags: InterfaceFlags = InterfaceFlags::empty();
+
+            if let Some(replace_peers) = config.replace_peers {
+                if replace_peers {
+                    flags |= InterfaceFlags::REPLACE_PEERS;
+                }
+            }
+
+            if let Some(private_key) = &config.private_key {
+                flags |= InterfaceFlags::HAS_PRIVATE_KEY;
+                interface.PrivateKey.copy_from_slice(private_key);
+            }
+
+            // field doesn't exist
+            /*if let Some(pub_key) = &config.public_key {
+                flags |= InterfaceFlags::HAS_PUBLIC_KEY;
+                interface.PublicKey.copy_from_slice(pub_key);
+            }*/
+
+            if let Some(listen_port) = config.listen_port {
+                flags |= InterfaceFlags::HAS_LISTEN_PORT;
+                interface.ListenPort = listen_port;
+            }
+
+            flags.bits
+        };
+
+        interface.PeersCount = config.peers.len() as u32;
+
+        for peer in &config.peers {
+            // Safety:
+            // `align_of::<WIREGUARD_INTERFACE` is 8, WIREGUARD_PEER has no special alignment
+            // requirements, and writer is already aligned to hold `WIREGUARD_INTERFACE` structs,
+            // therefore we uphold the alignment requirements of `write`
+            let mut wg_peer: &mut WIREGUARD_PEER = unsafe { writer.write() };
+
+            wg_peer.Flags = {
+                let mut flags = PeerFlags::HAS_PUBLIC_KEY;
+                wg_peer.PublicKey.copy_from_slice(&peer.public_key);
+
+                if let Some(preshared_key) = &peer.preshared_key {
+                    flags |= PeerFlags::HAS_PRESHARED_KEY;
+                    wg_peer.PresharedKey.copy_from_slice(preshared_key);
+                }
+
+                if let Some(keep_alive) = peer.persistent_keepalive_interval {
+                    flags |= PeerFlags::HAS_PERSISTENT_KEEPALIVE;
+                    wg_peer.PersistentKeepalive = keep_alive;
+                }
+
+                if let Some(endpoint) = peer.endpoint {
+                    flags |= PeerFlags::HAS_ENDPOINT;
+                    match endpoint {
+                        SocketAddr::V4(v4) => {
+                            let addr = unsafe { std::mem::transmute(v4.ip().octets()) };
+                            wg_peer.Endpoint.Ipv4.sin_family =
+                                winapi::shared::ws2def::AF_INET as u16;
+                            //Make sure to put the port in network byte order
+                            wg_peer.Endpoint.Ipv4.sin_port =
+                                u16::from_ne_bytes(v4.port().to_be_bytes());
+                            wg_peer.Endpoint.Ipv4.sin_addr = addr;
+                        }
+                        SocketAddr::V6(v6) => {
+                            let addr = unsafe { std::mem::transmute(v6.ip().octets()) };
+                            wg_peer.Endpoint.Ipv6.sin6_family =
+                                winapi::shared::ws2def::AF_INET6 as u16;
+                            wg_peer.Endpoint.Ipv6.sin6_port =
+                                u16::from_ne_bytes(v6.port().to_be_bytes());
+                            wg_peer.Endpoint.Ipv6.sin6_addr = addr;
+                        }
+                    }
+                }
+
+                if let Some(update) = peer.update_only {
+                    if update {
+                        flags |= PeerFlags::UPDATE;
+                    }
+                }
+
+                if let Some(remove) = peer.remove {
+                    if remove {
+                        flags |= PeerFlags::REMOVE;
+                    }
+                }
+
+                if let Some(replace) = peer.replace_allowed_ips {
+                    if replace {
+                        flags |= PeerFlags::REPLACE_ALLOWED_IPS;
+                    }
+                }
+
+                flags.bits
+            };
+
+            wg_peer.AllowedIPsCount = peer.allowed_ips.len() as u32;
+
+            for ip in &peer.allowed_ips {
+                // Safety:
+                // Same as above, `writer` is aligned because it was aligned before
+                let mut wg_allowed_ip: &mut WIREGUARD_ALLOWED_IP = unsafe { writer.write() };
+                match IpNet::new(ip.ipaddr, ip.cidr_mask) {
+                    Ok(allowed_ip) => match allowed_ip {
+                        IpNet::V4(v4) => {
+                            let addr = unsafe { std::mem::transmute(v4.addr().octets()) };
+                            wg_allowed_ip.Address.V4 = addr;
+                            wg_allowed_ip.AddressFamily = winapi::shared::ws2def::AF_INET as u16;
+                            wg_allowed_ip.Cidr = v4.prefix_len();
+                        }
+                        IpNet::V6(v6) => {
+                            let addr = unsafe { std::mem::transmute(v6.addr().octets()) };
+                            wg_allowed_ip.Address.V6 = addr;
+                            wg_allowed_ip.AddressFamily = winapi::shared::ws2def::AF_INET6 as u16;
+                            wg_allowed_ip.Cidr = v6.prefix_len();
+                        }
+                    },
+                    Err(_) => {}
+                }
+            }
+        }
+
+        //Make sure that our allocation math was correct and that we filled all of writer
+        debug_assert!(writer.is_full());
+
+        let result = unsafe {
+            self.wireguard.WireGuardSetConfiguration(
+                self.adapter.0,
+                writer.ptr().cast(),
+                size as u32,
+            )
+        };
+
+        match result {
+            0 => Err("WireGuardSetConfiguration failed".into()),
+            _ => Ok(()),
+        }
+    }
+
     /// Sets the wireguard configuration of this adapter
     pub fn set_config(&self, config: &SetInterface) -> Result<(), WireGuardError> {
         use wireguard_nt_raw::*;
-
-        bitflags::bitflags! {
-            struct InterfaceFlags: i32 {
-                const HAS_PUBLIC_KEY =  1 << 0;
-                const HAS_PRIVATE_KEY = 1 << 1;
-                const HAS_LISTEN_PORT = 1 << 2;
-                const REPLACE_PEERS =  1 << 3;
-            }
-        }
-
-        bitflags::bitflags! {
-            struct PeerFlags: i32 {
-                const HAS_PUBLIC_KEY =  1 << 0;
-                const HAS_PRESHARED_KEY = 1 << 1;
-                const HAS_PERSISTENT_KEEPALIVE = 1 << 2;
-                const HAS_ENDPOINT = 1 << 3;
-                const REPLACE_ALLOWED_IPS = 1 << 5;
-                const REMOVE = 1 << 6;
-                const UPDATE = 1 << 7;
-            }
-        }
 
         let peer_size: usize = config
             .peers
@@ -282,7 +456,6 @@ impl Adapter {
                 flags.bits
             };
 
-            log::info!("endpoint: {}", &peer.endpoint);
             match peer.endpoint {
                 SocketAddr::V4(v4) => {
                     let addr = unsafe { std::mem::transmute(v4.ip().octets()) };
@@ -337,7 +510,7 @@ impl Adapter {
             0 => Err("WireGuardSetConfiguration failed".into()),
             _ => Ok(()),
         }
-    }
+    }    
 
     /// Assigns this adapter an ip address and adds route(s) so that packets sent
     /// within the `interface_addr` ipnet will be sent across the WireGuard VPN
@@ -461,6 +634,19 @@ impl Adapter {
         }
     }
 
+    /// Retrieves the adapter link state (up/down)
+    pub fn get_adapter_state(&self) -> Result<i32, ()> {
+        unsafe {
+            let mut adapter_state: i32 = 0;
+            let ret = self.wireguard.WireGuardGetAdapterState(self.adapter.0, &mut adapter_state);
+            if 0 != ret {
+                Ok(adapter_state)
+            } else {
+                Err(())
+            }
+        }
+    }
+
     /// Returns the adapter's LUID.
     /// This is a 64bit unique identifier that windows uses when referencing this adapter
     pub fn get_luid(&self) -> u64 {
@@ -474,7 +660,7 @@ impl Adapter {
 
     /// Sets the logging level of this adapter
     ///
-    /// Log messages will be sent to the current logger (set using [`crate::set_logger`]
+    /// Log messages will be sent to the current logger (set using [`crate::set_logger`])
     pub fn set_logging(&self, level: AdapterLoggingLevel) -> bool {
         let level = match level {
             AdapterLoggingLevel::Off => 0,
@@ -488,8 +674,176 @@ impl Adapter {
         }
     }
 
+    // Conversion from Windows NT time format (UTC, 100ns since 1/1/1601)
+    fn windows_system_time_to_duration(windows_system_time: u64) -> Duration {
+        if 0 == windows_system_time {
+            Duration::new(0, 0)
+        } else {
+            // x*100 ns => y*s
+            let winsystime_secs: u64 = windows_system_time / (10*1000*1000);
+            // Time conversion offset: seconds between Windows' epoch 1-1-1601 and UNIX epoch 1-1-1970
+            const UNIX_EPOCH_FROM_1_1_1601: u64 = 11644473600;
+            Duration::from_secs(winsystime_secs - UNIX_EPOCH_FROM_1_1_1601)
+        }
+    }
+
+    /// Gets the current configuration of this adapter as wireguard_uapi::get::Peer struct
+    /// 
+    /// This is reimplementation of wg-nt-wrapper get_config() function with
+    /// return type that is compatible with telio::Adapter type.
+    /// 
+    /// It also fixes wrapper issues with timestamp underflow, and sets all
+    /// required fields, e.g. flags, appropriately
+    /// 
+    /// # Panics
+    /// 1. If reading WIREGUARD_INTERFACE, WIREGUARD_PEER or WIREGUARD_ALLOWED_IP would overflow the buffer.
+    /// 2. If the internal pointer does not meet the alignment requirements of the above structures.
+    pub fn get_config_uapi(&self) -> Result<get::Device, winapi::shared::minwindef::DWORD> {
+        // calling wireguard.WireGuardGetConfiguration with Bytes = 0 returns ERROR_MORE_DATA
+        // and updates Bytes to the correct value
+
+        let mut size = 0u32;
+        let res = unsafe {
+            self.wireguard.WireGuardGetConfiguration(
+                self.adapter.0,
+                std::ptr::null_mut(),
+                &mut size as _,
+            )
+        };
+        if winapi::shared::minwindef::TRUE == res {
+            // This should not happen: WireGuard just successfully returned size=0
+            return Err(winapi::shared::winerror::ERROR_NO_DATA.into());
+        }
+        let win32_error = unsafe { GetLastError() };
+        if ERROR_MORE_DATA != win32_error {
+            return Err(win32_error.into());
+        }
+        if 0 == size {
+            // This should not happen: WireGuard indicated ERROR_MORE_DATA, but returned size=0
+            return Err(winapi::shared::winerror::ERROR_NO_DATA.into());
+        }
+
+        let align = align_of::<WIREGUARD_INTERFACE>();
+        let mut reader = StructReader::new(size as usize, align);
+        let res = unsafe {
+            self.wireguard.WireGuardGetConfiguration(
+                self.adapter.0,
+                reader.ptr() as _,
+                &mut size as _,
+            )
+        };
+        if winapi::shared::minwindef::FALSE == res {
+            return Err(unsafe { GetLastError() }.into());
+        }
+
+        // # Safety:
+        // 1. `WireGuardGetConfiguration` writes a `WIREGUARD_INTERFACE` at offset 0 to the buffer we give it.
+        // 2. The buffer's alignment is set to be the proper alignment for a `WIREGUARD_INTERFACE` by the line above
+        // 3. We calculate the size of `reader` with the first call to `WireGuardGetConfiguration`. Wireguard writes at
+        //    least one `WIREGUARD_INTERFACE`, and size is updated accordingly, therefore `reader`'s allocation is at least
+        //    the size of a `WIREGUARD_INTERFACE`
+        let wireguard_interface: WIREGUARD_INTERFACE = unsafe { reader.read() };
+        let mut wg_interface = get::Device {
+            ifindex: 0,
+            ifname: String::new(),
+            //unused on Windows
+            fwmark: 0,
+            listen_port: wireguard_interface.ListenPort,
+            private_key: Some(wireguard_interface.PrivateKey),
+            public_key: Some(wireguard_interface.PublicKey),
+            peers: Vec::with_capacity(wireguard_interface.PeersCount as usize),
+        };
+
+        for _ in 0..wireguard_interface.PeersCount {
+            // # Safety:
+            // 1. `WireGuardGetConfiguration` writes a `WIREGUARD_PEER` immediately after the WIREGUARD_INTERFACE we read above.
+            // 2. We rely on Wireguard-NT to specify the number of peers written, and therefore we never read too many times unless Wireguard-NT (wrongly) tells us to
+            let peer: WIREGUARD_PEER = unsafe { reader.read() };
+            let endpoint = peer.Endpoint;
+            let address_family = unsafe { endpoint.si_family } as i32;
+            let endpoint = match address_family {
+                winapi::shared::ws2def::AF_INET => {
+                    // #Safety
+                    // This enum is valid to access because the address is a [u8; 4] which is set properly by the call above,
+                    // and it can have any value.
+                    let octets = unsafe { endpoint.Ipv4.sin_addr.S_un.S_un_b };
+                    let address = Ipv4Addr::new(octets.s_b1, octets.s_b2, octets.s_b3, octets.s_b4);
+                    let port = u16::from_be(unsafe { endpoint.Ipv4.sin_port });
+                    SocketAddr::V4(SocketAddrV4::new(address, port))
+                }
+                winapi::shared::ws2def::AF_INET6 => {
+                    let octets = unsafe { endpoint.Ipv6.sin6_addr.u.Byte };
+                    let address = Ipv6Addr::from(octets);
+                    let port = u16::from_be(unsafe { endpoint.Ipv6.sin6_port });
+                    let flow_info = unsafe { endpoint.Ipv6.sin6_flowinfo };
+                    let scope_id = unsafe { endpoint.Ipv6.__bindgen_anon_1.sin6_scope_id };
+                    SocketAddr::V6(SocketAddrV6::new(address, port, flow_info, scope_id))
+                }
+                _ => {
+                    panic!("Illegal address family {}", address_family);
+                }
+            }; 
+
+            // TODO: Replace hardcoded value with the ones in the bitfields or wireguard_nt_raw
+            let mut wg_peer = wireguard_uapi::get::Peer {
+                persistent_keepalive_interval: peer.PersistentKeepalive,
+                public_key: peer.PublicKey,
+                preshared_key: peer.PresharedKey,
+                endpoint: Some(endpoint),
+                tx_bytes: peer.TxBytes,
+                rx_bytes: peer.RxBytes,
+                last_handshake_time: Self::windows_system_time_to_duration(peer.LastHandshake),
+                protocol_version: 1,
+                allowed_ips: Vec::with_capacity(peer.AllowedIPsCount as usize),
+            };
+            for _ in 0..peer.AllowedIPsCount {
+                // # Safety:
+                // 1. `WireGuardGetConfiguration` writes zero or more `WIREGUARD_ALLOWED_IP`s immediately after the WIREGUARD_PEER we read above.
+                // 2. We rely on Wireguard-NT to specify the number of allowed ips written, and therefore we never read too many times unless Wireguard-NT (wrongly) tells us to
+                let allowed_ip_raw: WIREGUARD_ALLOWED_IP = unsafe { reader.read() };
+                let prefix_length = allowed_ip_raw.Cidr;
+                let allowed_ip = match allowed_ip_raw.AddressFamily as i32 {
+                    winapi::shared::ws2def::AF_INET => {
+                        let octets = unsafe { allowed_ip_raw.Address.V4.S_un.S_un_b };
+                        let address = IpAddr::V4(Ipv4Addr::new(
+                            octets.s_b1,
+                            octets.s_b2,
+                            octets.s_b3,
+                            octets.s_b4,
+                        ));
+
+                        wireguard_uapi::get::AllowedIp {
+                            family: 4,
+                            ipaddr: address,
+                            cidr_mask: prefix_length,
+                        }
+                    }
+                    winapi::shared::ws2def::AF_INET6 => {
+                        let octets = unsafe { allowed_ip_raw.Address.V6.u.Word };
+                        let address = IpAddr::V6(Ipv6Addr::new(
+                            octets[0], octets[1], octets[2], octets[3], octets[4], octets[5],
+                            octets[6], octets[7],
+                        ));
+                        wireguard_uapi::get::AllowedIp {
+                            family: 6,
+                            ipaddr: address,
+                            cidr_mask: prefix_length,
+                        }
+                    }
+                    _ => {
+                        panic!("Illegal address family {}", allowed_ip_raw.AddressFamily);
+                    }
+                };
+                wg_peer.allowed_ips.push(allowed_ip);
+            }
+            wg_interface.peers.push(wg_peer);
+        }
+
+        Ok(wg_interface)
+    }
+
     /// Gets the current configuration of this adapter
-    pub fn get_config(&self) -> WireguardInterface {
+    pub fn get_config(&self) -> Result<WireguardInterface, winapi::shared::minwindef::DWORD> {
         // calling wireguard.WireGuardGetConfiguration with Bytes = 0 returns ERROR_MORE_DATA
         // and updates Bytes to the correct value
         let mut size = 0u32;
@@ -500,9 +854,19 @@ impl Adapter {
                 &mut size as _,
             )
         };
-        assert_eq!(res, 0);
-        assert_eq!(unsafe { GetLastError() }, ERROR_MORE_DATA);
-        assert_ne!(size, 0); // size has been updated
+        if winapi::shared::minwindef::TRUE == res {
+            // This should not happen: WireGuard just successfully returned size=0
+            return Err(winapi::shared::winerror::ERROR_NO_DATA.into());
+        }
+        let win32_error = unsafe { GetLastError() };
+        if ERROR_MORE_DATA != win32_error {
+            return Err(win32_error.into());
+        }
+        if 0 == size {
+            // This should not happen: WireGuard indicated ERROR_MORE_DATA, but returned size=0
+            return Err(winapi::shared::winerror::ERROR_NO_DATA.into());
+        }
+
         let align = align_of::<WIREGUARD_INTERFACE>();
         let mut reader = StructReader::new(size as usize, align);
         let res = unsafe {
@@ -512,7 +876,9 @@ impl Adapter {
                 &mut size as _,
             )
         };
-        assert_ne!(res, 0);
+        if winapi::shared::minwindef::FALSE == res {
+            return Err(unsafe { GetLastError() }.into());
+        }
 
         // # Safety:
         // 1. `WireGuardGetConfiguration` writes a `WIREGUARD_INTERFACE` at offset 0 to the buffer we give it.
@@ -529,16 +895,17 @@ impl Adapter {
             peers: Vec::with_capacity(wireguard_interface.PeersCount as usize),
         };
 
+        // Conversion from Windows native time format
         let now = SystemTime::now();
         let now_instant = Instant::now();
         let unix_duration = now
             .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("Time set before unix epoch");
-
+            .expect("Time set before unix epoch");        
         // The number of 100ns intervals between 1-1-1600 and 1-1-1970
         const UNIX_EPOCH_FROM_1_1_1600: u64 = 116444736000000000;
-        //calculate now based on the number of 100ns intervals since 1-1-1600
+        // Calculate now based on the number of 100ns intervals since 1-1-1600
         let now_since_1600 = UNIX_EPOCH_FROM_1_1_1600 + (unix_duration.as_nanos() / 100u128) as u64;
+
         for _ in 0..wireguard_interface.PeersCount {
             // # Safety:
             // 1. `WireGuardGetConfiguration` writes a `WIREGUARD_PEER` immediately after the WIREGUARD_INTERFACE we read above.
@@ -569,10 +936,14 @@ impl Adapter {
                 }
             };
 
-            //Calculate the difference in 100ns steps between the last handshake and now
-            let handshake_delta = now_since_1600 - peer.LastHandshake;
+            // Calculate the difference in 100ns steps between the last handshake and now
+            let handshake_delta = if peer.LastHandshake == 0 {
+                0
+            } else {
+                now_since_1600 - peer.LastHandshake
+            };
 
-            //The time of the lash handshake is now - the delta
+            // The time of the last handshake is now - the delta
             let last_handshake = now_instant - Duration::from_nanos(handshake_delta * 100);
 
             let mut wg_peer = WireguardPeer {
@@ -612,7 +983,7 @@ impl Adapter {
             }
             wg_interface.peers.push(wg_peer);
         }
-        wg_interface
+        Ok(wg_interface)
     }
 }
 
