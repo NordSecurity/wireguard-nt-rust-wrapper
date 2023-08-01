@@ -971,7 +971,7 @@ impl Adapter {
                         IpNet::V4(Ipv4Net::new(address, prefix_length).expect("prefix is valid"))
                     }
                     winapi::shared::ws2def::AF_INET6 => {
-                        let octets = unsafe { allowed_ip.Address.V6.u.Byte };
+                        let octets: [u16; 8] = unsafe { allowed_ip.Address.V6.u.Word };
                         let address = Ipv6Addr::from(octets);
                         IpNet::V6(Ipv6Net::new(address, prefix_length).expect("prefix is valid"))
                     }
