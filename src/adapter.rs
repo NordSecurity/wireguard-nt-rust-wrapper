@@ -219,11 +219,11 @@ impl Adapter {
     }
 
     /// Sets the wireguard configuration of this adapter using xplatform structures
-    /// 
-    /// 
+    ///
+    ///
     /// This is reimplementation of wg-nt-wrapper set_config() function with
     /// return type that is compatible with telio::Adapter type.
-    /// 
+    ///
     /// # Panics
     /// 1. If writing to WIREGUARD_INTERFACE allocation would overflow the buffer.
     /// 2. If the writer's internal pointer does not meet the alignment requirements of WIREGUARD_INTERFACE.
@@ -510,7 +510,7 @@ impl Adapter {
             0 => Err("WireGuardSetConfiguration failed".into()),
             _ => Ok(()),
         }
-    }    
+    }
 
     /// Assigns this adapter an ip address and adds route(s) so that packets sent
     /// within the `interface_addr` ipnet will be sent across the WireGuard VPN
@@ -688,13 +688,13 @@ impl Adapter {
     }
 
     /// Gets the current configuration of this adapter as wireguard_uapi::get::Peer struct
-    /// 
+    ///
     /// This is reimplementation of wg-nt-wrapper get_config() function with
     /// return type that is compatible with telio::Adapter type.
-    /// 
+    ///
     /// It also fixes wrapper issues with timestamp underflow, and sets all
     /// required fields, e.g. flags, appropriately
-    /// 
+    ///
     /// # Panics
     /// 1. If reading WIREGUARD_INTERFACE, WIREGUARD_PEER or WIREGUARD_ALLOWED_IP would overflow the buffer.
     /// 2. If the internal pointer does not meet the alignment requirements of the above structures.
@@ -782,7 +782,7 @@ impl Adapter {
                 _ => {
                     panic!("Illegal address family {}", address_family);
                 }
-            }; 
+            };
 
             // TODO: Replace hardcoded value with the ones in the bitfields or wireguard_nt_raw
             let mut wg_peer = wireguard_uapi::get::Peer {
@@ -800,6 +800,7 @@ impl Adapter {
                 // # Safety:
                 // 1. `WireGuardGetConfiguration` writes zero or more `WIREGUARD_ALLOWED_IP`s immediately after the WIREGUARD_PEER we read above.
                 // 2. We rely on Wireguard-NT to specify the number of allowed ips written, and therefore we never read too many times unless Wireguard-NT (wrongly) tells us to
+
                 let allowed_ip_raw: WIREGUARD_ALLOWED_IP = unsafe { reader.read() };
                 let prefix_length = allowed_ip_raw.Cidr;
                 let allowed_ip = match allowed_ip_raw.AddressFamily as i32 {
@@ -819,11 +820,8 @@ impl Adapter {
                         }
                     }
                     winapi::shared::ws2def::AF_INET6 => {
-                        let octets = unsafe { allowed_ip_raw.Address.V6.u.Word };
-                        let address = IpAddr::V6(Ipv6Addr::new(
-                            octets[0], octets[1], octets[2], octets[3], octets[4], octets[5],
-                            octets[6], octets[7],
-                        ));
+                        let octets = unsafe { allowed_ip_raw.Address.V6.u.Byte };
+                        let address = IpAddr::V6(Ipv6Addr::from(octets));
                         wireguard_uapi::get::AllowedIp {
                             family: 6,
                             ipaddr: address,
@@ -900,7 +898,7 @@ impl Adapter {
         let now_instant = Instant::now();
         let unix_duration = now
             .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("Time set before unix epoch");        
+            .expect("Time set before unix epoch");
         // The number of 100ns intervals between 1-1-1600 and 1-1-1970
         const UNIX_EPOCH_FROM_1_1_1600: u64 = 116444736000000000;
         // Calculate now based on the number of 100ns intervals since 1-1-1600
