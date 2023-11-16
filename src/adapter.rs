@@ -829,7 +829,8 @@ impl Adapter {
                 // # Safety: reader.read::<WIREGUARD_PEER>()
                 // 1. `WireGuardGetConfiguration` writes zero or more `WIREGUARD_ALLOWED_IP`s immediately after the WIREGUARD_PEER we read above.
                 // 2. We rely on Wireguard-NT to specify the number of allowed ips written, and therefore we never read too many times unless Wireguard-NT (wrongly) tells us to
-                let allowed_ip_raw: WIREGUARD_ALLOWED_IP = unsafe { *reader.read() };
+
+                let allowed_ip_raw  = unsafe { reader.read::<WIREGUARD_ALLOWED_IP>() };
                 let prefix_length = allowed_ip_raw.Cidr;
                 let allowed_ip = match allowed_ip_raw.AddressFamily {
                     AF_INET => {
@@ -848,17 +849,8 @@ impl Adapter {
                         }
                     }
                     AF_INET6 => {
-                        let octets: [u16; 8] = unsafe { allowed_ip_raw.Address.V6.u.Word };
-                        let address = IpAddr::V6(Ipv6Addr::new(
-                            octets[0],
-                            octets[1],
-                            octets[2],
-                            octets[3],
-                            octets[4],
-                            octets[5],
-                            octets[6],
-                            octets[7],
-                        ));
+                        let octets = unsafe { allowed_ip_raw.Address.V6.u.Byte };
+                        let address = IpAddr::V6(Ipv6Addr::from(octets));
                         wireguard_uapi::get::AllowedIp {
                             family: 6,
                             ipaddr: address,
