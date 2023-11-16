@@ -314,7 +314,7 @@ impl Adapter {
                             wg_peer.Endpoint.Ipv4.sin_addr = addr;
                         }
                         SocketAddr::V6(v6) => {
-                            let addr = unsafe { std::mem::transmute(v6.ip().segments()) };
+                            let addr = unsafe { std::mem::transmute(v6.ip().octets()) };
                             wg_peer.Endpoint.Ipv6.sin6_family =
                                 winapi::shared::ws2def::AF_INET6 as u16;
                             wg_peer.Endpoint.Ipv6.sin6_port =
@@ -360,7 +360,7 @@ impl Adapter {
                             wg_allowed_ip.Cidr = v4.prefix_len();
                         }
                         IpNet::V6(v6) => {
-                            let addr = unsafe { std::mem::transmute(v6.addr().segments()) };
+                            let addr = unsafe { std::mem::transmute(v6.addr().octets()) };
                             wg_allowed_ip.Address.V6 = addr;
                             wg_allowed_ip.AddressFamily = winapi::shared::ws2def::AF_INET6 as u16;
                             wg_allowed_ip.Cidr = v6.prefix_len();
@@ -465,7 +465,7 @@ impl Adapter {
                     wg_peer.Endpoint.Ipv4.sin_addr = addr;
                 }
                 SocketAddr::V6(v6) => {
-                    let addr = unsafe { std::mem::transmute(v6.ip().segments()) };
+                    let addr = unsafe { std::mem::transmute(v6.ip().octets()) };
                     wg_peer.Endpoint.Ipv6.sin6_family = winapi::shared::ws2def::AF_INET6 as u16;
                     wg_peer.Endpoint.Ipv4.sin_port = u16::from_ne_bytes(v6.port().to_be_bytes());
                     wg_peer.Endpoint.Ipv6.sin6_addr = addr;
@@ -486,7 +486,7 @@ impl Adapter {
                         wg_allowed_ip.Cidr = v4.prefix_len();
                     }
                     IpNet::V6(v6) => {
-                        let addr = unsafe { std::mem::transmute(v6.addr().segments()) };
+                        let addr = unsafe { std::mem::transmute(v6.addr().octets()) };
                         wg_allowed_ip.Address.V6 = addr;
                         wg_allowed_ip.AddressFamily = winapi::shared::ws2def::AF_INET6 as u16;
                         wg_allowed_ip.Cidr = v6.prefix_len();
@@ -551,7 +551,7 @@ impl Adapter {
                     IpNet::V6(v6) => {
                         *default_route.DestinationPrefix.Prefix.si_family_mut() = AF_INET6 as u16;
                         default_route.DestinationPrefix.Prefix.Ipv6_mut().sin6_addr =
-                            std::mem::transmute(v6.addr().segments());
+                            std::mem::transmute(v6.addr().octets());
 
                         default_route.DestinationPrefix.PrefixLength = v6.prefix_len();
 
@@ -582,7 +582,7 @@ impl Adapter {
                     IpNet::V6(interface_addr_v6) => {
                         address_row.Address.Ipv6_mut().sin6_family = AF_INET6 as u16;
                         address_row.Address.Ipv6_mut().sin6_addr =
-                            std::mem::transmute(interface_addr_v6.addr().segments());
+                            std::mem::transmute(interface_addr_v6.addr().octets());
                     }
                 }
 
@@ -772,8 +772,8 @@ impl Adapter {
                     SocketAddr::V4(SocketAddrV4::new(address, port))
                 }
                 winapi::shared::ws2def::AF_INET6 => {
-                    let segments: [u16; 8] = unsafe { endpoint.Ipv6.sin6_addr.u.Word };
-                    let address = Ipv6Addr::from(segments);
+                    let octets = unsafe { endpoint.Ipv6.sin6_addr.u.Byte };
+                    let address = Ipv6Addr::from(octets);
                     let port = u16::from_be(unsafe { endpoint.Ipv6.sin6_port });
                     let flow_info = unsafe { endpoint.Ipv6.sin6_flowinfo };
                     let scope_id = unsafe { endpoint.Ipv6.__bindgen_anon_1.sin6_scope_id };
@@ -819,10 +819,10 @@ impl Adapter {
                         }
                     }
                     winapi::shared::ws2def::AF_INET6 => {
-                        let segments: [u16; 8] = unsafe { allowed_ip_raw.Address.V6.u.Word };
+                        let octets = unsafe { allowed_ip_raw.Address.V6.u.Word };
                         let address = IpAddr::V6(Ipv6Addr::new(
-                            segments[0], segments[1], segments[2], segments[3], segments[4], segments[5],
-                            segments[6], segments[7],
+                            octets[0], octets[1], octets[2], octets[3], octets[4], octets[5],
+                            octets[6], octets[7],
                         ));
                         wireguard_uapi::get::AllowedIp {
                             family: 6,
@@ -924,8 +924,8 @@ impl Adapter {
                     SocketAddr::V4(SocketAddrV4::new(address, port))
                 }
                 winapi::shared::ws2def::AF_INET6 => {
-                    let segments: [u16; 8] = unsafe { endpoint.Ipv6.sin6_addr.u.Word };
-                    let address = Ipv6Addr::from(segments);
+                    let octets = unsafe { endpoint.Ipv6.sin6_addr.u.Byte };
+                    let address = Ipv6Addr::from(octets);
                     let port = u16::from_be(unsafe { endpoint.Ipv6.sin6_port });
                     let flow_info = unsafe { endpoint.Ipv6.sin6_flowinfo };
                     let scope_id = unsafe { endpoint.Ipv6.__bindgen_anon_1.sin6_scope_id };
@@ -971,8 +971,8 @@ impl Adapter {
                         IpNet::V4(Ipv4Net::new(address, prefix_length).expect("prefix is valid"))
                     }
                     winapi::shared::ws2def::AF_INET6 => {
-                        let segments: [u16; 8] = unsafe { allowed_ip.Address.V6.u.Word };
-                        let address = Ipv6Addr::from(segments);
+                        let octets: [u16; 8] = unsafe { allowed_ip.Address.V6.u.Word };
+                        let address = Ipv6Addr::from(octets);
                         IpNet::V6(Ipv6Net::new(address, prefix_length).expect("prefix is valid"))
                     }
                     _ => {
