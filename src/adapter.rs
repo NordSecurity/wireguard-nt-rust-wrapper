@@ -759,37 +759,53 @@ impl Adapter {
             // 1. `WireGuardGetConfiguration` writes a `WIREGUARD_PEER` immediately after the WIREGUARD_INTERFACE we read above.
             // 2. We rely on Wireguard-NT to specify the number of peers written, and therefore we never read too many times unless Wireguard-NT (wrongly) tells us to
             let peer: WIREGUARD_PEER = unsafe { reader.read() };
-            let endpoint = peer.Endpoint;
-            let address_family = unsafe { endpoint.si_family } as i32;
-            let endpoint = match address_family {
-                winapi::shared::ws2def::AF_INET => {
-                    // #Safety
-                    // This enum is valid to access because the address is a [u8; 4] which is set properly by the call above,
-                    // and it can have any value.
-                    let octets = unsafe { endpoint.Ipv4.sin_addr.S_un.S_un_b };
-                    let address = Ipv4Addr::new(octets.s_b1, octets.s_b2, octets.s_b3, octets.s_b4);
-                    let port = u16::from_be(unsafe { endpoint.Ipv4.sin_port });
-                    SocketAddr::V4(SocketAddrV4::new(address, port))
-                }
-                winapi::shared::ws2def::AF_INET6 => {
-                    let octets = unsafe { endpoint.Ipv6.sin6_addr.u.Byte };
-                    let address = Ipv6Addr::from(octets);
-                    let port = u16::from_be(unsafe { endpoint.Ipv6.sin6_port });
-                    let flow_info = unsafe { endpoint.Ipv6.sin6_flowinfo };
-                    let scope_id = unsafe { endpoint.Ipv6.__bindgen_anon_1.sin6_scope_id };
-                    SocketAddr::V6(SocketAddrV6::new(address, port, flow_info, scope_id))
-                }
-                _ => {
-                    panic!("Illegal address family {}", address_family);
-                }
+            let flags = PeerFlags::from_bits_truncate(peer.Flags);
+
+            let endpoint = if flags.contains(PeerFlags::HAS_ENDPOINT) {
+                let endpoint = peer.Endpoint;
+                let address_family = unsafe { endpoint.si_family } as i32;
+                let endpoint = match address_family {
+                    winapi::shared::ws2def::AF_INET => {
+                        // #Safety
+                        // This enum is valid to access because the address is a [u8; 4] which is set properly by the call above,
+                        // and it can have any value.
+                        let octets = unsafe { endpoint.Ipv4.sin_addr.S_un.S_un_b };
+                        let address =
+                            Ipv4Addr::new(octets.s_b1, octets.s_b2, octets.s_b3, octets.s_b4);
+                        let port = u16::from_be(unsafe { endpoint.Ipv4.sin_port });
+                        SocketAddr::V4(SocketAddrV4::new(address, port))
+                    }
+                    winapi::shared::ws2def::AF_INET6 => {
+                        let octets = unsafe { endpoint.Ipv6.sin6_addr.u.Byte };
+                        let address = Ipv6Addr::from(octets);
+                        let port = u16::from_be(unsafe { endpoint.Ipv6.sin6_port });
+                        let flow_info = unsafe { endpoint.Ipv6.sin6_flowinfo };
+                        let scope_id = unsafe { endpoint.Ipv6.__bindgen_anon_1.sin6_scope_id };
+                        SocketAddr::V6(SocketAddrV6::new(address, port, flow_info, scope_id))
+                    }
+                    _ => {
+                        panic!("Illegal address family {}", address_family);
+                    }
+                };
+                Some(endpoint)
+            } else {
+                None
             };
 
-            // TODO: Replace hardcoded value with the ones in the bitfields or wireguard_nt_raw
             let mut wg_peer = wireguard_uapi::get::Peer {
-                persistent_keepalive_interval: peer.PersistentKeepalive,
-                public_key: peer.PublicKey,
-                preshared_key: peer.PresharedKey,
-                endpoint: Some(endpoint),
+                persistent_keepalive_interval: flags
+                    .contains(PeerFlags::HAS_PERSISTENT_KEEPALIVE)
+                    .then_some(peer.PersistentKeepalive)
+                    .unwrap_or_default(),
+                public_key: flags
+                    .contains(PeerFlags::HAS_PUBLIC_KEY)
+                    .then_some(peer.PublicKey)
+                    .unwrap_or_default(),
+                preshared_key: flags
+                    .contains(PeerFlags::HAS_PRESHARED_KEY)
+                    .then_some(peer.PresharedKey)
+                    .unwrap_or_default(),
+                endpoint,
                 tx_bytes: peer.TxBytes,
                 rx_bytes: peer.RxBytes,
                 last_handshake_time: Self::windows_system_time_to_duration(peer.LastHandshake),
