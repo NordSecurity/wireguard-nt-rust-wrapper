@@ -1,5 +1,5 @@
 use crate::wireguard_nt_raw;
-use log::*;
+use tracing::{error, info, warn};
 use widestring::U16CStr;
 
 use std::sync::atomic::{AtomicBool, Ordering};

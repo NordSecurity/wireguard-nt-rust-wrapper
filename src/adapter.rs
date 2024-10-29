@@ -188,7 +188,13 @@ impl Adapter {
         };
 
         if result.is_null() {
-            Err(("Failed to create adapter".into(), wireguard))
+            Err((
+                format!("Failed to create adapter, last os error: {}", unsafe {
+                    GetLastError()
+                })
+                .into(),
+                wireguard,
+            ))
         } else {
             Ok(Self {
                 adapter: UnsafeHandle(result),
@@ -209,7 +215,13 @@ impl Adapter {
         let result = unsafe { wireguard.WireGuardOpenAdapter(name_utf16.as_ptr()) };
 
         if result.is_null() {
-            Err(("WireGuardOpenAdapter failed".into(), wireguard))
+            Err((
+                format!("WireGuardOpenAdapter failed, last os error: {}", unsafe {
+                    GetLastError()
+                })
+                .into(),
+                wireguard,
+            ))
         } else {
             Ok(Adapter {
                 adapter: UnsafeHandle(result),
@@ -383,7 +395,11 @@ impl Adapter {
         };
 
         match result {
-            0 => Err("WireGuardSetConfiguration failed".into()),
+            0 => Err(format!(
+                "WireGuardSetConfiguration failed, last os error: {}",
+                unsafe { GetLastError() }
+            )
+            .into()),
             _ => Ok(()),
         }
     }
@@ -507,7 +523,11 @@ impl Adapter {
         };
 
         match result {
-            0 => Err("WireGuardSetConfiguration failed".into()),
+            0 => Err(format!(
+                "WireGuardSetConfiguration failed, last os error: {}",
+                unsafe { GetLastError() }
+            )
+            .into()),
             _ => Ok(()),
         }
     }
@@ -638,7 +658,9 @@ impl Adapter {
     pub fn get_adapter_state(&self) -> Result<i32, ()> {
         unsafe {
             let mut adapter_state: i32 = 0;
-            let ret = self.wireguard.WireGuardGetAdapterState(self.adapter.0, &mut adapter_state);
+            let ret = self
+                .wireguard
+                .WireGuardGetAdapterState(self.adapter.0, &mut adapter_state);
             if 0 != ret {
                 Ok(adapter_state)
             } else {
@@ -680,7 +702,7 @@ impl Adapter {
             Duration::new(0, 0)
         } else {
             // x*100 ns => y*s
-            let winsystime_secs: u64 = windows_system_time / (10*1000*1000);
+            let winsystime_secs: u64 = windows_system_time / (10 * 1000 * 1000);
             // Time conversion offset: seconds between Windows' epoch 1-1-1601 and UNIX epoch 1-1-1970
             const UNIX_EPOCH_FROM_1_1_1601: u64 = 11644473600;
             Duration::from_secs(winsystime_secs - UNIX_EPOCH_FROM_1_1_1601)
