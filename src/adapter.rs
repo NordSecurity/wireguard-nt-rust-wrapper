@@ -29,8 +29,8 @@ use windows_sys::Win32::{
         Ndis,
     },
     Networking::{
+        WinSock::IN_ADDR,
         WinSock::{IpDadStatePreferred, AF_INET, AF_INET6},
-        WinSock::{IN_ADDR},
     },
 };
 
@@ -190,7 +190,12 @@ impl Adapter {
         };
 
         if result.is_null() {
-            Err(Error::Driver(std::io::Error::last_os_error()))
+            Err(Error::Driver(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to create adapter, last os error: {}", unsafe {
+                    GetLastError()
+                }),
+            )))
         } else {
             Ok(Self {
                 adapter: UnsafeHandle(result),
@@ -208,7 +213,12 @@ impl Adapter {
         let result = unsafe { wireguard.WireGuardOpenAdapter(name_utf16.as_ptr()) };
 
         if result.is_null() {
-            Err(Error::Driver(std::io::Error::last_os_error()))
+            Err(Error::Driver(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("WireGuardOpenAdapter failed, last os error: {}", unsafe {
+                    GetLastError()
+                }),
+            )))
         } else {
             Ok(Adapter {
                 adapter: UnsafeHandle(result),
@@ -380,7 +390,13 @@ impl Adapter {
         };
 
         match result {
-            0 => Err(Error::Driver(std::io::Error::last_os_error())),
+            0 => Err(Error::Driver(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!(
+                    "WireGuardSetConfiguration failed, last os error: {}",
+                    unsafe { GetLastError() }
+                ),
+            ))),
             _ => Ok(()),
         }
     }
@@ -504,7 +520,13 @@ impl Adapter {
         };
 
         match result {
-            0 => Err(Error::Driver(std::io::Error::last_os_error())),
+            0 => Err(Error::Driver(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!(
+                    "WireGuardSetConfiguration failed, last os error: {}",
+                    unsafe { GetLastError() }
+                ),
+            ))),
             _ => Ok(()),
         }
     }
@@ -846,7 +868,7 @@ impl Adapter {
                 // 1. `WireGuardGetConfiguration` writes zero or more `WIREGUARD_ALLOWED_IP`s immediately after the WIREGUARD_PEER we read above.
                 // 2. We rely on Wireguard-NT to specify the number of allowed ips written, and therefore we never read too many times unless Wireguard-NT (wrongly) tells us to
 
-                let allowed_ip_raw  = unsafe { reader.read::<WIREGUARD_ALLOWED_IP>() };
+                let allowed_ip_raw = unsafe { reader.read::<WIREGUARD_ALLOWED_IP>() };
                 let prefix_length = allowed_ip_raw.Cidr;
                 let allowed_ip = match allowed_ip_raw.AddressFamily {
                     AF_INET => {
