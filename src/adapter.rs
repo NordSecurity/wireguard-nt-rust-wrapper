@@ -636,6 +636,18 @@ impl Adapter {
         }
     }
 
+    /// Gets adapter state
+    pub fn is_up(&self) -> bool {
+        let mut state: i32 = 0;
+        unsafe {
+            self.wireguard
+                .WireGuardGetAdapterState(self.adapter.0, &mut state)
+                != 0;
+        };
+
+        state & WIREGUARD_STATE_UP == WIREGUARD_STATE_UP
+    }
+
     /// Puts this adapter into the up state
     pub fn up(&self) -> bool {
         unsafe {
