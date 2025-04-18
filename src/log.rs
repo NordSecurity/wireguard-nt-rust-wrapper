@@ -38,7 +38,7 @@ pub extern "C" fn default_logger(
     let utf8_msg = msg.to_string_lossy();
     match level {
         wireguard_nt_raw::WIREGUARD_LOGGER_LEVEL_WIREGUARD_LOG_INFO => {
-            info!("wireguard: {}", utf8_msg)
+            debug!("wireguard: {}", utf8_msg)
         }
         wireguard_nt_raw::WIREGUARD_LOGGER_LEVEL_WIREGUARD_LOG_WARN => {
             warn!("wireguard: {}", utf8_msg)
