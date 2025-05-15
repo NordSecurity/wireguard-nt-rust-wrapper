@@ -269,7 +269,7 @@ impl Adapter {
 
             if let Some(private_key) = &config.private_key {
                 flags |= InterfaceFlags::HAS_PRIVATE_KEY;
-                interface.PrivateKey.copy_from_slice(private_key);
+                interface.PrivateKey.copy_from_slice(private_key.as_ref());
             }
 
             // field doesn't exist
@@ -301,7 +301,7 @@ impl Adapter {
 
                 if let Some(preshared_key) = &peer.preshared_key {
                     flags |= PeerFlags::HAS_PRESHARED_KEY;
-                    wg_peer.PresharedKey.copy_from_slice(preshared_key);
+                    wg_peer.PresharedKey.copy_from_slice(preshared_key.as_ref());
                 }
 
                 if let Some(keep_alive) = peer.persistent_keepalive_interval {
@@ -799,8 +799,8 @@ impl Adapter {
             //unused on Windows
             fwmark: 0,
             listen_port: wireguard_interface.ListenPort,
-            private_key: Some(wireguard_interface.PrivateKey),
-            public_key: Some(wireguard_interface.PublicKey),
+            private_key: Some(wireguard_interface.PrivateKey.into()),
+            public_key: Some(wireguard_interface.PublicKey.into()),
             peers: Vec::with_capacity(wireguard_interface.PeersCount as usize),
         };
 
@@ -849,11 +849,11 @@ impl Adapter {
                     .unwrap_or_default(),
                 public_key: flags
                     .contains(PeerFlags::HAS_PUBLIC_KEY)
-                    .then_some(peer.PublicKey)
+                    .then_some(peer.PublicKey.into())
                     .unwrap_or_default(),
                 preshared_key: flags
                     .contains(PeerFlags::HAS_PRESHARED_KEY)
-                    .then_some(peer.PresharedKey)
+                    .then_some(peer.PresharedKey.into())
                     .unwrap_or_default(),
                 endpoint,
                 tx_bytes: peer.TxBytes,

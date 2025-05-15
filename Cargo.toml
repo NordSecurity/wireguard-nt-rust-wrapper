@@ -32,7 +32,7 @@ windows-sys = { version = "0.59", features = [
     "Win32_NetworkManagement_Ndis"
 ]}
 winapi = { version = "0.3", features = ["ws2def", "netioapi", "nldef"] }
-wireguard-uapi = { version = "2.0.4", features = ["xplatform"] }
+wireguard-uapi = { git = "https://github.com/NordSecurity/wireguard-uapi-rs.git", rev = "5f5d9952ced4faf10f56d98153e4a8e560102e5c", features = ["xplatform", "zeroize"] }
 
 [dev-dependencies]
 base64 = "0.13"
