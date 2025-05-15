@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 use crate::log::AdapterLoggingLevel;
 use crate::util::{self, StructReader, UnsafeHandle};
 use crate::wireguard_nt_raw::{
