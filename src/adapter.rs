@@ -1,4 +1,3 @@
-#[warn(missing_docs)]
 use crate::log::AdapterLoggingLevel;
 use crate::util;
 /// Representation of a wireGuard adapter with safe idiomatic bindings to the functionality provided by
