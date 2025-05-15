@@ -1265,7 +1265,6 @@ fn bindgen_test_layout__WIREGUARD_INTERFACE() {
     );
 }
 
-
 extern crate libloading;
 
 /// Wireguard-nt wrapper object, loads dll and accesses it's functions
@@ -1376,20 +1375,20 @@ impl wireguard {
         })
     }
     /// Create a new adapter
-    /// 
+    ///
     /// # Args
     /// arg1: `LPCWSTR` Adapter Name, zero-terminated string of up to MAX_ADAPTER_NAME-1 characters
-    /// 
+    ///
     /// arg2: `LPCWSTR` TunnelType, zero-terminated string of up to MAX_ADAPTER_NAME-1 characters
-    /// 
+    ///
     /// arg3: `const GUID *` RequestedGUID, influences NLA generation deterministically
-    /// 
+    ///
     /// # Return
     /// HANDLE on success or NULL on error
-    /// 
+    ///
     /// # Errors
     /// Sets LastError
-    /// 
+    ///
     pub unsafe fn WireGuardCreateAdapter(
         &self,
         arg1: LPCWSTR,
@@ -1399,34 +1398,34 @@ impl wireguard {
         (self.WireGuardCreateAdapter)(arg1, arg2, arg3)
     }
     /// Load an existing adapter
-    /// 
+    ///
     /// # Args
     /// arg1: LPCWSTR Adapter Name, zero-terminated string of up to MAX_ADAPTER_NAME-1 characters
-    /// 
+    ///
     /// # Return
     /// HANDLE on success or NULL on error
-    /// 
+    ///
     /// # Errors
     /// Sets LastError
-    /// 
+    ///
     pub unsafe fn WireGuardOpenAdapter(&self, arg1: LPCWSTR) -> WIREGUARD_ADAPTER_HANDLE {
         (self.WireGuardOpenAdapter)(arg1)
     }
     /// Close adapter handle
-    /// 
+    ///
     /// # Args
     /// arg1: `WIREGUARD_ADAPTER_HANDLE` obtained with WireGuardCreateAdapter() or WireGuardOpenAdapter()
-    /// 
+    ///
     pub unsafe fn WireGuardCloseAdapter(&self, arg1: WIREGUARD_ADAPTER_HANDLE) -> () {
         (self.WireGuardCloseAdapter)(arg1)
     }
     /// Get LUID of an adapter
-    /// 
+    ///
     /// # Args
     /// arg1: Adapter handle obtained with `WireGuardCreateAdapter` or `WireGuardOpenAdapter`
-    /// 
+    ///
     /// arg2: Pointer to receive adapter LUID
-    /// 
+    ///
     pub unsafe fn WireGuardGetAdapterLUID(
         &self,
         arg1: WIREGUARD_ADAPTER_HANDLE,
@@ -1435,52 +1434,52 @@ impl wireguard {
         (self.WireGuardGetAdapterLUID)(arg1, arg2)
     }
     /// Get the version of the loaded driver
-    /// 
+    ///
     /// # Return
     /// `DWORD` Version of the WireGuardNT driver currently loaded, or zero on error
-    /// 
+    ///
     /// # Errors
     /// Sets LastError
-    /// 
+    ///
     pub unsafe fn WireGuardGetRunningDriverVersion(&self) -> DWORD {
         (self.WireGuardGetRunningDriverVersion)()
     }
     /// Delete driver if not in use
-    /// 
+    ///
     /// # Return
     /// `TRUE` on success
-    /// 
+    ///
     /// # Errors
     /// Sets LastError on fail
-    /// 
+    ///
     pub unsafe fn WireGuardDeleteDriver(&self) -> BOOL {
         (self.WireGuardDeleteDriver)()
     }
     /// Rregister logger callback function
-    /// 
-    /// After registration, the callback may be called concurrently by multiple threads. 
-    /// It is up to the supplied callback function, NewLogger, to handle synchronization. 
+    ///
+    /// After registration, the callback may be called concurrently by multiple threads.
+    /// It is up to the supplied callback function, NewLogger, to handle synchronization.
     /// If NewLogger is NULL, logging is disabled.
-    /// 
+    ///
     /// # Args
     /// arg1: `WIREGUARD_LOGGER_CALLBACK`, function pointer or `NULL`
-    /// 
+    ///
     pub unsafe fn WireGuardSetLogger(&self, arg1: WIREGUARD_LOGGER_CALLBACK) -> () {
         (self.WireGuardSetLogger)(arg1)
     }
     /// Set whether and how the specified adapter logs to the logger
-    /// 
+    ///
     /// # Args
     /// arg1: `WIREGUARD_ADAPTER_HANDLE`, Adapter handle obtained with `WireGuardCreateAdapter` or `WireGuardOpenAdapter`
-    /// 
+    ///
     /// arg2: `WIREGUARD_ADAPTER_LOG_STATE`, Adapter logging state
-    /// 
+    ///
     /// # Return
     /// `TRUE` on success
-    /// 
+    ///
     /// # Errors
     /// Sets LastError on fail
-    /// 
+    ///
     pub unsafe fn WireGuardSetAdapterLogging(
         &self,
         arg1: WIREGUARD_ADAPTER_HANDLE,
@@ -1489,15 +1488,15 @@ impl wireguard {
         (self.WireGuardSetAdapterLogging)(arg1, arg2)
     }
     /// Get whether the adapter is up or down
-    /// 
+    ///
     /// # Args
     /// arg1: `WIREGUARD_ADAPTER_HANDLE`, Adapter handle obtained with `WireGuardCreateAdapter` or `WireGuardOpenAdapter`
-    /// 
+    ///
     /// arg2: `WIREGUARD_ADAPTER_STATE*`, Pointer to adapter state
     ///
     /// # Return
     /// `TRUE` on success
-    /// 
+    ///
     /// # Errors
     /// Sets LastError on fail
     ///
@@ -1509,18 +1508,18 @@ impl wireguard {
         (self.WireGuardGetAdapterState)(arg1, arg2)
     }
     /// Set the adapter up or down. Note that sockets are owned by the process that sets the adapter up.
-    /// 
+    ///
     /// # Args
     /// arg1: `WIREGUARD_ADAPTER_HANDLE`, Adapter handle obtained with `WireGuardCreateAdapter` or `WireGuardOpenAdapter`
-    /// 
+    ///
     /// arg2: `WIREGUARD_ADAPTER_STATE`, Adapter state
     ///
     /// # Return
     /// `TRUE` on success
-    /// 
+    ///
     /// # Errors
     /// Sets LastError on fail
-    /// 
+    ///
     pub unsafe fn WireGuardSetAdapterState(
         &self,
         arg1: WIREGUARD_ADAPTER_HANDLE,
@@ -1529,25 +1528,25 @@ impl wireguard {
         (self.WireGuardSetAdapterState)(arg1, arg2)
     }
     /// Get current configuration of the adapter
-    /// 
+    ///
     /// # Args
     /// arg1: `WIREGUARD_ADAPTER_HANDLE`, Adapter handle obtained with `WireGuardCreateAdapter` or `WireGuardOpenAdapter`
-    /// 
-    /// arg2: `WIREGUARD_INTERFACE *`, Adapter configuration, represents a `WIREGUARD_INTERFACE` structure, 
-    /// 
+    ///
+    /// arg2: `WIREGUARD_INTERFACE *`, Adapter configuration, represents a `WIREGUARD_INTERFACE` structure,
+    ///
     /// immediately followed in memory by zero or more `WIREGUARD_PEER` and/or `WIREGUARD_ALLOWED_IP` structures
-    /// 
-    /// arg3: `DWORD *`, Pointer to number of bytes of Config allocation, on input, 
+    ///
+    /// arg3: `DWORD *`, Pointer to number of bytes of Config allocation, on input,
     /// and is updated when the function returns to the amount of bytes required
-    /// 
+    ///
     /// # Return
     /// `TRUE` on success
-    /// 
+    ///
     /// # Errors
-    /// Sets LastError. If LastError is ERROR_MORE_DATA, Bytes is updated with 
+    /// Sets LastError. If LastError is ERROR_MORE_DATA, Bytes is updated with
     /// the number of bytes needed for successful operation
-    /// 
-    /// Since that byte value can change, this function should be called in a 
+    ///
+    /// Since that byte value can change, this function should be called in a
     /// tight loop until success or until the error is not ERROR_MORE_DATA
     pub unsafe fn WireGuardGetConfiguration(
         &self,
@@ -1558,22 +1557,22 @@ impl wireguard {
         (self.WireGuardGetConfiguration)(arg1, arg2, arg3)
     }
     /// Set adapter configuration
-    /// 
+    ///
     /// # Args
     /// arg1: `WIREGUARD_ADAPTER_HANDLE`, Adapter handle obtained with `WireGuardCreateAdapter` or `WireGuardOpenAdapter`
-    /// 
-    /// arg2: `WIREGUARD_INTERFACE *`, Adapter configuration, represents a `WIREGUARD_INTERFACE` structure, 
-    /// 
+    ///
+    /// arg2: `WIREGUARD_INTERFACE *`, Adapter configuration, represents a `WIREGUARD_INTERFACE` structure,
+    ///
     /// immediately followed in memory by zero or more `WIREGUARD_PEER` and/or `WIREGUARD_ALLOWED_IP` structures
-    /// 
+    ///
     /// arg3: `DWORD`, Pointer to number of bytes of adapter configuration
-    /// 
+    ///
     /// # Return
     /// `TRUE` on success
-    /// 
+    ///
     /// # Errors
     /// Sets LastError on fail
-    /// 
+    ///
     pub unsafe fn WireGuardSetConfiguration(
         &self,
         arg1: WIREGUARD_ADAPTER_HANDLE,
