@@ -40,3 +40,4 @@ env_logger = "0.11"
 boringtun = { git = "https://github.com/NordSecurity/boringtun", tag = "v1.0.0" }
 ipnet = "2.3"
 x25519-dalek = { version = "2", default-features = false, features = ["static_secrets", "getrandom"] }
+log = "0.4.27"
