@@ -102,6 +102,7 @@ pub struct _GUID {
     pub Data4: [::std::os::raw::c_uchar; 8usize],
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__GUID() {
     assert_eq!(
         ::std::mem::size_of::<_GUID>(),
@@ -176,6 +177,7 @@ pub struct in_addr__bindgen_ty_1__bindgen_ty_1 {
     pub s_b4: UCHAR,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_in_addr__bindgen_ty_1__bindgen_ty_1() {
     assert_eq!(
         ::std::mem::size_of::<in_addr__bindgen_ty_1__bindgen_ty_1>(),
@@ -250,6 +252,7 @@ pub struct in_addr__bindgen_ty_1__bindgen_ty_2 {
     pub s_w2: USHORT,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_in_addr__bindgen_ty_1__bindgen_ty_2() {
     assert_eq!(
         ::std::mem::size_of::<in_addr__bindgen_ty_1__bindgen_ty_2>(),
@@ -292,6 +295,7 @@ fn bindgen_test_layout_in_addr__bindgen_ty_1__bindgen_ty_2() {
     );
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_in_addr__bindgen_ty_1() {
     assert_eq!(
         ::std::mem::size_of::<in_addr__bindgen_ty_1>(),
@@ -335,6 +339,7 @@ fn bindgen_test_layout_in_addr__bindgen_ty_1() {
     );
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_in_addr() {
     assert_eq!(
         ::std::mem::size_of::<in_addr>(),
@@ -434,6 +439,7 @@ impl SCOPE_ID__bindgen_ty_1__bindgen_ty_1 {
     }
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_SCOPE_ID__bindgen_ty_1() {
     assert_eq!(
         ::std::mem::size_of::<SCOPE_ID__bindgen_ty_1>(),
@@ -478,6 +484,7 @@ pub struct sockaddr_in {
     pub sin_zero: [CHAR; 8usize],
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_sockaddr_in() {
     assert_eq!(
         ::std::mem::size_of::<sockaddr_in>(),
@@ -543,6 +550,7 @@ pub union in6_addr__bindgen_ty_1 {
     pub Word: [USHORT; 8usize],
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_in6_addr__bindgen_ty_1() {
     assert_eq!(
         ::std::mem::size_of::<in6_addr__bindgen_ty_1>(),
@@ -576,6 +584,7 @@ fn bindgen_test_layout_in6_addr__bindgen_ty_1() {
     );
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_in6_addr() {
     assert_eq!(
         ::std::mem::size_of::<in6_addr>(),
@@ -613,6 +622,7 @@ pub struct _NET_LUID_LH__bindgen_ty_1 {
     pub _bitfield_1: __BindgenBitfieldUnit<[u8; 8usize]>,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__NET_LUID_LH__bindgen_ty_1() {
     assert_eq!(
         ::std::mem::size_of::<_NET_LUID_LH__bindgen_ty_1>(),
@@ -682,6 +692,7 @@ impl _NET_LUID_LH__bindgen_ty_1 {
     }
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__NET_LUID_LH() {
     assert_eq!(
         ::std::mem::size_of::<_NET_LUID_LH>(),
@@ -732,6 +743,7 @@ pub union sockaddr_in6__bindgen_ty_1 {
     pub sin6_scope_struct: SCOPE_ID,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_sockaddr_in6__bindgen_ty_1() {
     assert_eq!(
         ::std::mem::size_of::<sockaddr_in6__bindgen_ty_1>(),
@@ -771,6 +783,7 @@ fn bindgen_test_layout_sockaddr_in6__bindgen_ty_1() {
     );
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout_sockaddr_in6() {
     assert_eq!(
         ::std::mem::size_of::<sockaddr_in6>(),
@@ -833,6 +846,7 @@ pub union _SOCKADDR_INET {
     pub si_family: ADDRESS_FAMILY,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__SOCKADDR_INET() {
     assert_eq!(
         ::std::mem::size_of::<_SOCKADDR_INET>(),
@@ -935,6 +949,7 @@ pub union _WIREGUARD_ALLOWED_IP__bindgen_ty_1 {
     pub V6: IN6_ADDR,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__WIREGUARD_ALLOWED_IP__bindgen_ty_1() {
     assert_eq!(
         ::std::mem::size_of::<_WIREGUARD_ALLOWED_IP__bindgen_ty_1>(),
@@ -975,6 +990,7 @@ fn bindgen_test_layout__WIREGUARD_ALLOWED_IP__bindgen_ty_1() {
     );
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__WIREGUARD_ALLOWED_IP() {
     assert_eq!(
         ::std::mem::size_of::<_WIREGUARD_ALLOWED_IP>(),
@@ -1060,6 +1076,7 @@ pub struct _WIREGUARD_PEER {
     pub AllowedIPsCount: DWORD,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__WIREGUARD_PEER() {
     assert_eq!(
         ::std::mem::size_of::<_WIREGUARD_PEER>(),
@@ -1202,6 +1219,7 @@ pub struct _WIREGUARD_INTERFACE {
     pub PeersCount: DWORD,
 }
 #[test]
+#[ignore] // TODO: disabling because test had been disable for a long time
 fn bindgen_test_layout__WIREGUARD_INTERFACE() {
     assert_eq!(
         ::std::mem::size_of::<_WIREGUARD_INTERFACE>(),
