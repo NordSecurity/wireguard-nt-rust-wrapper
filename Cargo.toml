@@ -31,3 +31,4 @@ env_logger = "0.9"
 base64 = "0.13"
 boringtun = { git = "https://github.com/NordSecurity/boringtun", tag = "v1.0.0" }
 ipnet = "2.3"
+log = "0.4.27"
