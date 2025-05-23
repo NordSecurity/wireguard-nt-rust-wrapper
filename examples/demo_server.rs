@@ -82,7 +82,7 @@ fn main() {
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
-            let stats = adapter.get_config();
+            let stats = adapter.get_config().unwrap();
             for peer in stats.peers {
                 let handshake_age = Instant::now().duration_since(peer.last_handshake);
                 println!(
