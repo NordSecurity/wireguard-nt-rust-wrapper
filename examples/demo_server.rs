@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use ipnet::{Ipv4Net, Ipv6Net};
 use log::*;
@@ -71,7 +71,7 @@ fn main() {
     let done = Arc::new(AtomicBool::new(false));
     let done2 = Arc::clone(&done);
     let thread = std::thread::spawn(move || 'outer: loop {
-        let stats = adapter.get_config();
+        let stats = adapter.get_config().unwrap();
         for peer in stats.peers {
             let handshake_age = peer
                 .last_handshake
@@ -90,19 +90,7 @@ fn main() {
             if done2.load(Ordering::Relaxed) {
                 break 'outer;
             }
-            let stats = adapter.get_config().unwrap();
-            for peer in stats.peers {
-                let handshake_age = Instant::now().duration_since(peer.last_handshake);
-                println!(
-                    "  {:?}, up: {}, down: {}, handsake: {}s ago",
-                    peer.allowed_ips,
-                    peer.tx_bytes,
-                    peer.rx_bytes,
-                    handshake_age.as_secs_f32()
-                );
-            }
-            // Go to 163.172.161.0 in your browser to see bandwidth numbers here change
-            // because only traffic to that ip is routed through the interface
+            std::thread::sleep(Duration::from_millis(100));
         }
     });
 

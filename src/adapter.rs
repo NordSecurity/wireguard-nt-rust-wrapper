@@ -40,7 +40,6 @@ use crate::{Error, Result, Wireguard};
 use crate::wireguard_nt_raw;
 
 use std::net::IpAddr;
-use winapi::um::errhandlingapi::GetLastError;
 use wireguard_uapi::{get, xplatform::set};
 
 /// `Adapter` holds the `WIREGUARD_ADAPTER_HANDLE` and it's related functionality via `wireguard` wrapper
@@ -288,7 +287,7 @@ impl Adapter {
             // `align_of::<WIREGUARD_INTERFACE` is 8, WIREGUARD_PEER has no special alignment
             // requirements, and writer is already aligned to hold `WIREGUARD_INTERFACE` structs,
             // therefore we uphold the alignment requirements of `write`
-            let mut wg_peer: &mut WIREGUARD_PEER = unsafe { writer.write() };
+            let wg_peer: &mut WIREGUARD_PEER = unsafe { writer.write() };
 
             wg_peer.Flags = {
                 let mut flags = PeerFlags::HAS_PUBLIC_KEY;
@@ -351,7 +350,7 @@ impl Adapter {
             for ip in &peer.allowed_ips {
                 // Safety:
                 // Same as above, `writer` is aligned because it was aligned before
-                let mut wg_allowed_ip: &mut WIREGUARD_ALLOWED_IP = unsafe { writer.write() };
+                let wg_allowed_ip: &mut WIREGUARD_ALLOWED_IP = unsafe { writer.write() };
                 match IpNet::new(ip.ipaddr, ip.cidr_mask) {
                     Ok(allowed_ip) => match allowed_ip {
                         IpNet::V4(v4) => {
