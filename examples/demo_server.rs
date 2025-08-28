@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use ipnet::{Ipv4Net, Ipv6Net};
 use log::*;
@@ -10,31 +10,26 @@ use log::*;
 fn main() {
     env_logger::init();
 
-    let private = boringtun::crypto::x25519::X25519SecretKey::new();
-    let public = private.public_key();
+    let private = x25519_dalek::StaticSecret::random();
+    let public = x25519_dalek::PublicKey::from(&private);
 
     let (demo_pub, internal_ip, endpoint) =
         get_demo_server_config(public.as_bytes()).expect("Failed to get demo server credentials");
     println!("Connecting to {} - internal ip: {}", endpoint, internal_ip);
 
-    //Must be run as Administrator because we create network adapters
-    //Load the wireguard dll file so that we can call the underlying C functions
-    //Unsafe because we are loading an arbitrary dll file
+    // Must be run as Administrator because we create network adapters
+
+    // Load the wireguard dll file so that we can call the underlying C functions
+    // Unsafe because we are loading an arbitrary dll file
     let wireguard =
         unsafe { wireguard_nt::load_from_path("examples/wireguard_nt/bin/amd64/wireguard.dll") }
             .expect("Failed to load wireguard dll");
 
-    //Try to open an adapter from the given pool with the name "Demo"
-    let adapter = match wireguard_nt::Adapter::open(wireguard, "Demo") {
-        Ok(a) => a,
-        Err((_, wireguard)) =>
-        //If loading failed (most likely it didn't exist), create a new one
-        {
-            wireguard_nt::Adapter::create(wireguard, "WireGuard", "Demo", None)
-                .map_err(|e| e.0)
-                .expect("Failed to create wireguard adapter!")
-        }
-    };
+    // Try to open an adapter from the given pool with the name "Demo"
+    let adapter = wireguard_nt::Adapter::open(&wireguard, "Demo").unwrap_or_else(|_| {
+        wireguard_nt::Adapter::create(&wireguard, "WireGuard", "Demo", None)
+            .expect("Failed to create wireguard adapter!")
+    });
     let mut interface_private = [0; 32];
     let mut peer_pub = [0; 32];
 
@@ -68,33 +63,34 @@ fn main() {
         Ok(()) => {}
         Err(err) => panic!("Failed to set default route: {}", err),
     }
-    assert!(adapter.up());
+    assert!(adapter.up().is_ok());
 
+    // Go to http://demo.wireguard.com/ and see the bandwidth numbers change!
     println!("Printing peer bandwidth statistics");
     println!("Press enter to exit");
     let done = Arc::new(AtomicBool::new(false));
     let done2 = Arc::clone(&done);
-    let thread = std::thread::spawn(move || {
-        'outer: loop {
-            for _ in 0..10 {
-                if done2.load(Ordering::Relaxed) {
-                    break 'outer;
-                }
-                std::thread::sleep(Duration::from_millis(100));
+    let thread = std::thread::spawn(move || 'outer: loop {
+        let stats = adapter.get_config().unwrap();
+        for peer in stats.peers {
+            let handshake_age = peer
+                .last_handshake
+                .map(|h| SystemTime::now().duration_since(h).unwrap_or_default());
+            let handshake_msg = match handshake_age {
+                Some(age) => format!("handshake performed {:.2}s ago", age.as_secs_f32()),
+                None => "no active handshake".to_string(),
+            };
+
+            println!(
+                "  {:?}, {} bytes up, {} bytes down, {handshake_msg}",
+                peer.allowed_ips, peer.tx_bytes, peer.rx_bytes
+            );
+        }
+        for _ in 0..10 {
+            if done2.load(Ordering::Relaxed) {
+                break 'outer;
             }
-            let stats = adapter.get_config().unwrap();
-            for peer in stats.peers {
-                let handshake_age = Instant::now().duration_since(peer.last_handshake);
-                println!(
-                    "  {:?}, up: {}, down: {}, handsake: {}s ago",
-                    peer.allowed_ips,
-                    peer.tx_bytes,
-                    peer.rx_bytes,
-                    handshake_age.as_secs_f32()
-                );
-            }
-            // Go to 163.172.161.0 in your browser to see bandwidth numbers here change
-            // because only traffic to that ip is routed through the interface
+            std::thread::sleep(Duration::from_millis(100));
         }
     });
 
@@ -116,14 +112,14 @@ fn get_demo_server_config(pub_key: &[u8]) -> Result<(Vec<u8>, Ipv4Addr, SocketAd
         .collect();
 
     let mut s: TcpStream = TcpStream::connect_timeout(
-        addrs.get(0).expect("Failed to resolve demo server DNS"),
+        addrs.first().expect("Failed to resolve demo server DNS"),
         Duration::from_secs(5),
     )
     .expect("Failed to open connection to demo server");
 
     let mut encoded = base64::encode(pub_key);
     encoded.push('\n');
-    s.write(encoded.as_bytes())
+    s.write_all(encoded.as_bytes())
         .expect("Failed to write public key to server");
 
     let mut bytes = [0u8; 512];
