@@ -92,7 +92,7 @@ pub mod util;
     deref_nullptr,
     clippy::all
 )]
-mod wireguard_nt_raw;
+pub mod wireguard_nt_raw;
 
 pub(crate) const MAX_NAME: usize = 256;
 
