@@ -193,5 +193,12 @@ where
     )))
 }
 
+/// Unloads the driver from system
+pub fn unload(wireguard: Wireguard) -> bool {
+    unsafe {
+        wireguard.WireGuardDeleteDriver() != 0
+    }
+}
+
 // The error type
 // pub type WireGuardError = Box<dyn std::error::Error>;
