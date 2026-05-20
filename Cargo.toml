@@ -16,17 +16,17 @@ default-target = "x86_64-pc-windows-msvc"
 targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc"]
 
 [dependencies]
-tracing = "0.1.40"
+tracing = "0.1.44"
 winapi = { version = "0.3", features = ["ws2def", "netioapi", "nldef"] }
 wireguard-uapi = { git = "https://github.com/NordSecurity/wireguard-uapi-rs.git", rev = "5f5d9952ced4faf10f56d98153e4a8e560102e5c", features = ["xplatform", "zeroize"] }
 bitflags = "2"
-getrandom = "0.2"
-ipnet = "2.3"
-libloading = "0.8"
+getrandom = "0.4"
+ipnet = "2.12"
+libloading = "0.9"
 log = "0.4"
-thiserror = "1.0"
-widestring = "0.4"
-windows-sys = { version = "0.59", features = [
+thiserror = "2.0"
+widestring = "1.2"
+windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Networking",
     "Win32_Networking_WinSock",
@@ -35,9 +35,7 @@ windows-sys = { version = "0.59", features = [
 ]}
 
 [dev-dependencies]
-base64 = "0.13"
-boringtun = { git = "https://github.com/NordSecurity/boringtun", tag = "v1.0.0" }
-ipnet = "2.3"
-log = "0.4.27"
+base64 = "0.22"
+neptun = { git = "https://github.com/NordSecurity/NepTUN", tag = "v2.3.0" }
 env_logger = "0.11"
 x25519-dalek = { version = "2", default-features = false, features = ["static_secrets", "getrandom"] }

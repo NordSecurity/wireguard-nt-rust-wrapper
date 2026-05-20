@@ -27,8 +27,8 @@ use windows_sys::Win32::{
 use crate::log::AdapterLoggingLevel;
 use crate::util::{self, StructReader, UnsafeHandle};
 use crate::wireguard_nt_raw::{
-    GUID, WIREGUARD_ALLOWED_IP, WIREGUARD_INTERFACE, WIREGUARD_INTERFACE_FLAG, WIREGUARD_PEER,
-    WIREGUARD_PEER_FLAG, _NET_LUID_LH,
+    _NET_LUID_LH, GUID, WIREGUARD_ALLOWED_IP, WIREGUARD_INTERFACE, WIREGUARD_INTERFACE_FLAG,
+    WIREGUARD_PEER, WIREGUARD_PEER_FLAG,
 };
 use crate::{Error, Result, Wireguard};
 
@@ -158,8 +158,7 @@ impl Adapter {
 
         let guid = guid.unwrap_or_else(|| {
             let mut guid_bytes = [0u8; 16];
-            getrandom::getrandom(&mut guid_bytes)
-                .expect("Failed to generate random bytes for guid");
+            getrandom::fill(&mut guid_bytes).expect("Failed to generate random bytes for guid");
             u128::from_ne_bytes(guid_bytes)
         });
         //SAFETY: guid is a unique integer so transmuting either all zeroes or the user's preferred
@@ -625,7 +624,7 @@ impl Adapter {
             if err != ERROR_SUCCESS {
                 return win_error("GetIpInterfaceEntry", err);
             }
-            ip_interface.UseAutomaticMetric = 0;
+            ip_interface.UseAutomaticMetric = false;
             ip_interface.Metric = metric;
             ip_interface.NlMtu = 1420;
             ip_interface.SitePrefixLength = 0;
