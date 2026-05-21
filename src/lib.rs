@@ -99,6 +99,7 @@ pub use crate::adapter::*;
 pub use crate::log::*;
 pub use crate::util::get_running_driver_version;
 
+use libloading::AsFilename;
 use std::sync::Arc;
 pub use wireguard_nt_raw::wireguard as Sys;
 
@@ -111,7 +112,7 @@ pub enum Error {
     Driver(#[from] std::io::Error),
     /// Unable to encode UTF-16 string due to early null
     #[error("invalid string: {0}")]
-    Null(#[from] widestring::NulError<u16>),
+    Null(#[from] widestring::error::ContainsNul<u16>),
     #[error("name too large (max {})", crate::MAX_NAME)]
     NameTooLarge,
     /// The windows function (self.0), failed with the given error (self.1)
@@ -169,7 +170,7 @@ pub unsafe fn load() -> std::result::Result<Wireguard, libloading::Error> {
 /// For more information see [`libloading`]'s dynamic library safety guarantees: [`libloading`][`libloading::Library::new`]
 pub unsafe fn load_from_path<P>(path: P) -> std::result::Result<Wireguard, libloading::Error>
 where
-    P: AsRef<::std::ffi::OsStr>,
+    P: AsFilename,
 {
     Ok(Wireguard(Arc::new(wireguard_nt_raw::wireguard::new(path)?)))
 }
