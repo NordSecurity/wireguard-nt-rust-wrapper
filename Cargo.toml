@@ -18,7 +18,7 @@ targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows
 [dependencies]
 tracing = "0.1.44"
 winapi = { version = "0.3", features = ["ws2def", "netioapi", "nldef"] }
-wireguard-uapi = { git = "https://github.com/NordSecurity/wireguard-uapi-rs.git", rev = "5f5d9952ced4faf10f56d98153e4a8e560102e5c", features = ["xplatform", "zeroize"] }
+wireguard-uapi = { git = "https://github.com/NordSecurity/wireguard-uapi-rs.git", branch = "kumor/LLT-7574-aegis-aead-cipher-suites-support", features = ["xplatform", "zeroize"] }
 bitflags = "2"
 getrandom = "0.4"
 ipnet = "2.12"

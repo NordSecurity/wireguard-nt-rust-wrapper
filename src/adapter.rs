@@ -861,6 +861,8 @@ impl Adapter {
                 last_handshake_time: Self::windows_system_time_to_duration(peer.LastHandshake),
                 protocol_version: 1,
                 allowed_ips: Vec::with_capacity(peer.AllowedIPsCount as usize),
+                supported_ciphers: None,
+                selected_cipher: None,
             };
             for _ in 0..peer.AllowedIPsCount {
                 // # Safety:
