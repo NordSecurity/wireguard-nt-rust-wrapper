@@ -15,13 +15,10 @@ categories = ["api-bindings"]
 default-target = "x86_64-pc-windows-msvc"
 targets = ["aarch64-pc-windows-msvc", "i686-pc-windows-msvc", "x86_64-pc-windows-msvc"]
 
-[features]
-ciphers_extension = ["wireguard-uapi/ciphers_extension"]
-
 [dependencies]
 tracing = "0.1.44"
 winapi = { version = "0.3", features = ["ws2def", "netioapi", "nldef"] }
-wireguard-uapi = { git = "https://github.com/NordSecurity/wireguard-uapi-rs.git", rev = "d5ed4b6c62e9d4e5e89ce770d4beca9ad60c8b6b", features = ["xplatform", "zeroize"] }
+wireguard-uapi = { git = "https://github.com/NordSecurity/wireguard-uapi-rs.git", rev = "47f0275ca3a1358402021b61bdf3ac23880d5661", features = ["xplatform", "zeroize"] }
 bitflags = "2"
 getrandom = "0.4"
 ipnet = "2.12"
